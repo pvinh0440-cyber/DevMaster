@@ -62,6 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $_SESSION['Email'] = $adminUser['Gmail'];
                     $_SESSION['IsAdmin'] = true; // KÍCH HOẠT QUYỀN ADMIN TUYỆT ĐỐI
                     
+                    // --- ĐOẠN CẬP NHẬT TRẠNG THÁI ONLINE CHO ADMIN THÀNH CÔNG ---
+                    $updateAdminStatusSql = "UPDATE quantriadmin SET TrangThai = 'on' WHERE AdminId = ?";
+                    $stmtUpdateAdminStatus = $conn->prepare($updateAdminStatusSql);
+                    $stmtUpdateAdminStatus->execute([$adminUser['AdminId']]);
+                    // --- KẾT THÚC ĐOẠN CẬP NHẬT ---
+                    
                     // Điều hướng thẳng về trang chủ Index hoặc trang Dashboard quản trị của bạn
                     header("Location: ../Admin/Dashboard.php");
                     exit();
@@ -78,21 +84,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
                 if ($user) {
-                    // Kiểm tra mật khẩu tài khoản thành viên thường
                     if (password_verify($matKhau, $user['MatKhau']) || $matKhau === $user['MatKhau']) {
-                        
-                        // Thiết lập thông số Session thông thường
-                        $_SESSION['UserLoggedIn'] = true;
-                        $_SESSION['UserId'] = $user['STT']; 
-                        $_SESSION['Username'] = $user['TenDangNhap'];
-                        $_SESSION['FullName'] = $user['HoTen'];
-                        $_SESSION['Email'] = $user['Gmail'];
-                        $_SESSION['UserActiveName'] = $user['TenDangNhap'];
-                        $_SESSION['IsAdmin'] = false; // Người dùng thường, không có quyền admin
-                        
-                        header("Location: ../index.php");
-                        exit();
-                    } else {
+    
+                    // Thiết lập thông số Session thông thường
+                    $_SESSION['UserLoggedIn'] = true;
+                    $_SESSION['UserId'] = $user['STT']; 
+                    $_SESSION['Username'] = $user['TenDangNhap'];
+                    $_SESSION['FullName'] = $user['HoTen'];
+                    $_SESSION['Email'] = $user['Gmail'];
+                    $_SESSION['UserActiveName'] = $user['TenDangNhap'];
+                    $_SESSION['IsAdmin'] = false; // Người dùng thường, không có quyền admin
+                    
+                    // ĐỒNG BỘ TRẠNG THÁI: Cập nhật trạng thái hoạt động vào Database để Admin nhìn thấy
+                    // ĐỒNG BỘ TRẠNG THÁI: Cập nhật thời gian hoạt động mới nhất vào Database để Admin nhìn thấy
+                    $updateStatusSql = "UPDATE dangky SET TrangThai = NOW() WHERE STT = ?";
+                    $stmtUpdateStatus = $conn->prepare($updateStatusSql);
+                    $stmtUpdateStatus->execute([$user['STT']]);
+                    
+                    header("Location: ../index.php");
+                    exit();
+                } else {
                         $errors[] = "Mật khẩu không chính xác. Vui lòng kiểm tra lại.";
                     }
                 } else {
