@@ -26,7 +26,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
             $stmt->bind_param("i", $idToDelete);
             $stmt->execute();
         }
-        $_SESSION['deleteMessage'] = "<div class='alert success-alert'><i class='fa-solid fa-circle-check'></i> Đã xóa thành viên khỏi hệ thống thành công!</div>";
+        $_SESSION['deleteMessage'] = "<div class='alert success-alert'><i class='fa-solid fa-circle-check'></i> Đã xóa học viên khỏi hệ thống!</div>";
     } catch (Exception $e) {
         $_SESSION['deleteMessage'] = "<div class='alert error-alert'><i class='fa-solid fa-circle-exclamation'></i> Lỗi hệ thống: Không thể xóa học viên này.</div>";
     }
