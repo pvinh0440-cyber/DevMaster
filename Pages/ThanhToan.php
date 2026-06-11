@@ -210,7 +210,7 @@ if ($is_logged_in && isset($_SESSION['FullName']) && !empty($_SESSION['FullName'
                                 <i class="fa-solid fa-clock-rotate-left"></i> Theo dõi lịch sử đơn hàng của bạn
                             </a>
                         <?php else: ?>
-                            <a href="/DevMaster/Pages/Login.php" onclick="alert('Vui lòng đăng nhập bằng tài khoản vừa tạo để theo dõi đơn hàng!');" class="btn-checkout-primary spec-btn-history">
+                            <a href="/DevMaster/Auth/Login.php" class="btn-checkout-primary spec-btn-history">
                                 <i class="fa-solid fa-clock-rotate-left"></i> Theo dõi lịch sử đơn hàng của bạn
                             </a>
                         <?php endif; ?>
