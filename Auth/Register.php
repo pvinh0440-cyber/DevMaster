@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 // Chuẩn bị câu lệnh Insert tương thích 100% với cấu trúc bảng `dangky`
                 $insertQuery = "INSERT INTO dangky (HoTen, TenDangNhap, Gmail, SDT, MatKhau, NgayDangKy, TrangThai) 
-                VALUES (:hoTen, :tenDangNhap, :gmail, :sdt, :matKhau, NOW(), 'Online')";
+                VALUES (:hoTen, :tenDangNhap, :gmail, :sdt, :matKhau, NOW(), NOW())";
                 
                 $insertStmt = $connect->prepare($insertQuery);
                 $result = $insertStmt->execute([
