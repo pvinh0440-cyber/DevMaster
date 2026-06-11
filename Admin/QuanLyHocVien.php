@@ -81,9 +81,21 @@ function hasPendingOrder($db, $sttUser) {
     }
 }
 
-// Kiểm tra trạng thái hoạt động thực tế
-function checkUserOnlineStatus($db, $username) {
-    return isset($_SESSION['UserActiveName']) && $_SESSION['UserActiveName'] === $username; 
+// Kiểm tra trạng thái hoạt động thực tế dựa trên thời gian tương tác cuối cùng từ Database
+function checkUserOnlineStatus($db, $studentRow) {
+    if (!empty($studentRow['TrangThai'])) {
+        $lastActivity = strtotime($studentRow['TrangThai']);
+        // Nếu chuyển đổi thời gian thất bại (do chứa chữ như 'Chờ xác nhận'), trả về false để logic dưới xử lý tiếp
+        if (!$lastActivity) {
+            return false;
+        }
+        $currentTime = time();
+        $timeDifference = $currentTime - $lastActivity;
+        
+        // Nếu thời gian tương tác cuối cùng trong vòng 5 phút (300 giây) thì coi là Online
+        return $timeDifference <= 300;
+    }
+    return false; 
 }
 ?>
 <!DOCTYPE html>
@@ -344,21 +356,19 @@ function checkUserOnlineStatus($db, $username) {
                         // Khởi tạo biến đếm độc lập bắt đầu từ 1 cho giao diện hiển thị
                         $index = 1; 
                         foreach ($students as $student): 
-                            // Định nghĩa màu sắc nhãn trạng thái dựa trên checkUserOnlineStatus thực tế
-                            $isOnline = checkUserOnlineStatus($db, $student['TenDangNhap']);
-                            
+                            // Định nghĩa màu sắc nhãn trạng thái dựa trên dữ liệu thực tế từ Database
+                            $isOnline = checkUserOnlineStatus($db, $student);
+
                             if ($isOnline) {
                                 $badgeClass = 'online';
                                 $statusLabel = 'Online';
+                            } else if (!empty($student['TrangThai']) && strcasecmp(trim($student['TrangThai']), 'Chờ xác nhận') == 0) {
+                                // Nếu trạng thái trong DB được gán cụ thể là "Chờ xác nhận" thì ưu tiên hiển thị
+                                $badgeClass = 'pending'; 
+                                $statusLabel = 'Chờ xác nhận';
                             } else {
                                 $badgeClass = 'offline';
                                 $statusLabel = 'Offline';
-                            }
-
-                            // Nếu trạng thái trong DB được gán cụ thể là "Chờ xác nhận" thì ưu tiên hiển thị
-                            if(!empty($student['TrangThai']) && strcasecmp(trim($student['TrangThai']), 'Chờ xác nhận') == 0) { 
-                                $badgeClass = 'pending'; 
-                                $statusLabel = 'Chờ xác nhận';
                             }
 
                             // Ép định dạng ngày tháng năm giờ phút thân thiện
