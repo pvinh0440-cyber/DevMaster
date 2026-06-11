@@ -52,6 +52,38 @@ if (isset($_GET['action']) && $_GET['action'] === 'confirm_order' && isset($_GET
     } catch (Exception $e) {}
 }
 
+// 2b. Xử lý Xóa đơn hàng chờ xác nhận theo yêu cầu hủy của học viên
+if (isset($_GET['action']) && $_GET['action'] === 'delete_order' && isset($_GET['order_id'])) {
+    $orderIdToDelete = intval($_GET['order_id']);
+    try {
+        // Định nghĩa câu lệnh xóa chi tiết đơn hàng trước để tránh lỗi ràng buộc khóa ngoại (Foreign Key)
+        $deleteDetailsSql = "DELETE FROM chitiethangdadat WHERE HangDaDatId = ?";
+        // Định nghĩa câu lệnh xóa đơn hàng chính trong bảng hangdadat (ảnh hưởng trực tiếp đến hiển thị tại DonHang.php)
+        $deleteOrderSql = "DELETE FROM hangdadat WHERE HangDaDatId = ? AND STT = ? AND TrangThai = 0";
+        
+        if ($db instanceof PDO) {
+            // Thực thi xóa trên driver PDO
+            $stmt1 = $db->prepare($deleteDetailsSql);
+            $stmt1->execute([$orderIdToDelete]);
+            
+            $stmt2 = $db->prepare($deleteOrderSql);
+            $stmt2->execute([$orderIdToDelete, $studentId]);
+        } else {
+            // Thực thi xóa trên driver MySQLi
+            $stmt1 = $db->prepare($deleteDetailsSql);
+            $stmt1->bind_param("i", $orderIdToDelete);
+            $stmt1->execute();
+            
+            $stmt2 = $db->prepare($deleteOrderSql);
+            $stmt2->bind_param("ii", $orderIdToDelete, $studentId);
+            $stmt2->execute();
+        }
+        // Chuyển hướng tải lại trang ngay lập tức mà không hiển thị thông báo alert
+        header("Location: XemChiTiet.php?id=" . $studentId);
+        exit;
+    } catch (Exception $e) {}
+}
+
 // 3. Lấy danh sách toàn bộ đơn hàng của học viên này
 $ordersList = [];
 $grandTotal = 0;
@@ -345,6 +377,7 @@ try {
                                                     </div>
                                                     <div class="dropdown-content-menu">
                                                         <a href="javascript:void(0);" onclick="confirmAction(<?php echo $order['HangDaDatId']; ?>)">Xác nhận</a>
+                                                        <a href="javascript:void(0);" onclick="deleteAction(<?php echo $order['HangDaDatId']; ?>)" style="color: #ef4444; border-top: 1px solid #f1f5f9;">Xóa</a>
                                                     </div>
                                                 </div>
                                             <?php endif; ?>
@@ -397,6 +430,10 @@ try {
 
         function confirmAction(orderId) {
             window.location.href = `XemChiTiet.php?id=<?php echo $studentId; ?>&action=confirm_order&order_id=${orderId}`;
+        }
+        // Hàm xử lý chuyển hướng xóa đơn hàng ngay lập tức mà không đưa ra hộp thoại thông báo xác nhận
+        function deleteAction(orderId) {
+            window.location.href = `XemChiTiet.php?id=<?php echo $studentId; ?>&action=delete_order&order_id=${orderId}`;
         }
     </script>
 </body>
