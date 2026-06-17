@@ -908,6 +908,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
         function handleModalVideoSelect(input) {
             if (input.files && input.files[0]) {
                 TEMPORARY_SELECTED_VIDEO_NAME = input.files[0].name;
+                window.currentPreviewVideo = URL.createObjectURL(input.files[0]);
                 document.getElementById('modal_video_current_label').innerText = `File vừa chọn: ${TEMPORARY_SELECTED_VIDEO_NAME}`;
             }
         }
@@ -949,7 +950,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
             if (MODAL_MODE === 'ADD') {
                 LESSON_DATA_STATE.push({
                     ten: nameVal,
-                    video: TEMPORARY_SELECTED_VIDEO_NAME
+                    video: TEMPORARY_SELECTED_VIDEO_NAME,
+                    preview: window.currentPreviewVideo
                 });
                 // Nhảy đến trang cuối cùng nếu phần tử mới vượt trang hiện tại
                 CURRENT_PAGE = Math.ceil(LESSON_DATA_STATE.length / ITEMS_PER_PAGE) || 1;
@@ -1070,8 +1072,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
                 cardNode.className = 'lesson-workspace-card';
                 cardNode.innerHTML = `
                     <div class="video-preview-block">
-                        <video muted poster="../Images/default-course.png">
-                            <source src="/DevMaster/Videos/${item.video}" type="video/mp4">
+                        <video
+                            src="${item.preview || ''}#t=0.5"
+                            preload="metadata"
+                            muted
+                            playsinline>
                         </video>
                     </div>
                     <div class="lesson-details-block">
