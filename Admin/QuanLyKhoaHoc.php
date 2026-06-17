@@ -136,11 +136,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
                 executeQuery($db, "UPDATE khoahoc SET Ten = ?, TenGiangVien = ?, Gia = ?, NhomKhoaHocId = ? WHERE KhoaHocId = ?", [$newName, $gv, $gia, $parentId, $id]);
             } else if ($level === 'baihoc') {
                 $parentId = intval($_POST['parent_id']);
-                $video = trim($_POST['video_link']);
+
+                // Mặc định giữ lại link cũ nếu người dùng không chọn file mới.
+                $video = '';
+                if (isset($_POST['video_link'])) {
+                    $video = trim($_POST['video_link']);
+                } elseif (isset($_POST['LinkVideo'])) {
+                    $video = trim($_POST['LinkVideo']);
+                } elseif (isset($_POST['video'])) {
+                    $video = trim($_POST['video']);
+                }
+
+                // Nếu có file video mới thì upload và ghi đè link video cũ.
+                if (isset($_FILES['video_file']) && is_array($_FILES['video_file']) && $_FILES['video_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+                    if ($_FILES['video_file']['error'] !== UPLOAD_ERR_OK) {
+                        throw new Exception('Không thể tải video lên. Mã lỗi: ' . $_FILES['video_file']['error']);
+                    }
+
+                    $allowedExt = ['mp4', 'webm', 'ogg', 'mov', 'm4v'];
+                    $allowedMime = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-m4v', 'application/octet-stream'];
+
+                    $originalName = $_FILES['video_file']['name'] ?? '';
+                    $tmpName = $_FILES['video_file']['tmp_name'] ?? '';
+                    $size = intval($_FILES['video_file']['size'] ?? 0);
+                    $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+                    $mime = $_FILES['video_file']['type'] ?? '';
+
+                    if (!in_array($ext, $allowedExt, true)) {
+                        throw new Exception('Định dạng video không hợp lệ. Chỉ chấp nhận: mp4, webm, ogg, mov, m4v.');
+                    }
+                    if (!in_array($mime, $allowedMime, true) && strpos($mime, 'video/') !== 0) {
+                        throw new Exception('File tải lên không phải video hợp lệ.');
+                    }
+
+                    if ($size > 500 * 1024 * 1024) {
+                        throw new Exception('Video quá lớn. Giới hạn tối đa là 500MB.');
+                    }
+
+                    $uploadDir = dirname(__DIR__) . '/Uploads/LessonVideos/';
+                    if (!is_dir($uploadDir)) {
+                        if (!mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                            throw new Exception('Không thể tạo thư mục lưu video.');
+                        }
+                    }
+
+                    $safeFileName = 'lesson_' . $id . '_' . time() . '.' . $ext;
+                    $destPath = $uploadDir . $safeFileName;
+
+                    if (!move_uploaded_file($tmpName, $destPath)) {
+                        throw new Exception('Không thể lưu file video lên máy chủ.');
+                    }
+
+                    $video = '/DevMaster/Uploads/LessonVideos/' . $safeFileName;
+                }
+
+                if ($video === '') {
+                    throw new Exception('Link video không được để trống.');
+                }
+
                 executeQuery($db, "UPDATE baihoc SET Ten = ?, LinkVideo = ?, KhoaHocId = ? WHERE BaiHocId = ?", [$newName, $video, $parentId, $id]);
             }
-            
-            $customMsg = 'Cập nhật thành công!';
+
             if ($level === 'khoahoc' || $level === 'nhom' || $level === 'baihoc') {
                 $customMsg = 'Đã di chuyển và cập nhật cấu trúc thành công!';
             }
@@ -1471,6 +1527,7 @@ try {
             if(level === 'danhmuc') { modalBox.style.maxWidth = '400px'; document.getElementById('modalTitle').innerText = 'Chỉnh sửa Danh mục'; }
             if(level === 'nhom') { modalBox.style.maxWidth = '500px'; document.getElementById('modalTitle').innerText = 'Chỉnh sửa Nhóm Khóa Học'; }
             if(level === 'khoahoc') { modalBox.style.maxWidth = '600px'; document.getElementById('modalTitle').innerText = 'Chỉnh sửa Khóa Học'; }
+            if(level === 'baihoc') { modalBox.style.maxWidth = '760px'; document.getElementById('modalTitle').innerText = 'Chỉnh sửa Bài Học'; }
 
             // Gọi AJAX lấy data
             const formData = new FormData();
@@ -1701,7 +1758,7 @@ try {
                     nameInput.classList.add('error'); errorBox.innerText = res.message; errorBox.style.display = "block";
                 }
             })
-            .catch(err => alert('Không được trùng video!'))
+            .catch(err => alert('Có lỗi xảy ra khi lưu dữ liệu!'))
             .finally(() => loader.classList.remove('active'));
         }
 
