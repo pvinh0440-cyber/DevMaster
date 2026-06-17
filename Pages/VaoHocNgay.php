@@ -466,7 +466,18 @@ $danhSachBaiHoc = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
                         data-lesson-id="<?php echo $baihoc['BaiHocId']; ?>"
                         data-locked="<?php echo $isLocked ? 'true' : 'false'; ?>"
                         data-completed="<?php echo $isCompleted ? 'true' : 'false'; ?>">
-                        <source src="/DevMaster/Images-Videos/<?php echo htmlspecialchars($baihoc['LinkVideo']); ?>" type="video/mp4">
+                        <?php
+                        $videoSrc = $baihoc['LinkVideo'];
+                        
+                        if (
+                            strpos($videoSrc, '/DevMaster/') !== 0 &&
+                            strpos($videoSrc, 'http') !== 0
+                        ) {
+                            $videoSrc = '/DevMaster/Images-Videos/' . $videoSrc;
+                        }
+                        ?>
+                        
+                        <source src="<?php echo htmlspecialchars($videoSrc); ?>" type="video/mp4">
                         Trình duyệt không hỗ trợ thẻ video.
                     </video>
                 </div>
