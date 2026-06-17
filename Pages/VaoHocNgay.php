@@ -380,6 +380,34 @@ $danhSachBaiHoc = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
             pointer-events: none;
         }
 
+        /* Thêm CSS cho thông báo Warning ở giữa màn hình */
+        .custom-warning-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(239, 68, 68, 0.95);
+            color: #FFFFFF;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            z-index: 9999;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .custom-warning-toast.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
         @media (max-width: 1400px) { .lessons-container { grid-template-columns: repeat(4, 1fr); } }
         @media (max-width: 1100px) { .lessons-container { grid-template-columns: repeat(3, 1fr); } }
         @media (max-width: 800px) { .lessons-container { grid-template-columns: repeat(2, 1fr); } }
@@ -408,17 +436,36 @@ $danhSachBaiHoc = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
 
     <div class="lessons-container" id="lessonsGrid">
         <?php if (!empty($danhSachBaiHoc)): ?>
-            <?php foreach ($danhSachBaiHoc as $index => $baihoc): 
+            <?php 
+            // Khởi tạo biến lưu trạng thái hoàn thành của bài học trước đó
+            // Nếu đang ở trang > 1, cần kiểm tra logic nâng cao hoặc mặc định dựa theo dữ liệu trang hiện tại
+            $prevLessonCompleted = true; 
+
+            foreach ($danhSachBaiHoc as $index => $baihoc): 
                 $isCompleted = $baihoc['TrangThai'] == 1;
                 $progressWidth = $isCompleted ? 100 : 0; 
+                
+                // Bài đầu tiên của trang 1 luôn mở, các bài sau phụ thuộc vào bài trước nó
+                if ($page == 1 && $index == 0) {
+                    $isLocked = false;
+                } else {
+                    // Nếu bài trước đó chưa hoàn thành và bài hiện tại cũng chưa xong -> Khóa
+                    $isLocked = !$prevLessonCompleted && !$isCompleted;
+                }
+                
+                // Gán lại trạng thái bài này để bài kế tiếp kiểm tra
+                $prevLessonCompleted = $isCompleted;
             ?>
-            <div class="lesson-card" data-title="<?php echo mb_strtolower($baihoc['Ten'], 'UTF-8'); ?>">
-                <div class="video-wrapper">
+            <div class="lesson-card <?php echo $isLocked ? 'lesson-locked' : ''; ?>" 
+                data-title="<?php echo mb_strtolower($baihoc['Ten'], 'UTF-8'); ?>"
+                style="<?php echo $isLocked ? 'opacity: 0.6; cursor: not-allowed;' : ''; ?>">
+                <div class="video-wrapper" style="<?php echo $isLocked ? 'pointer-events: none;' : ''; ?>">
                     <video id="video-<?php echo $baihoc['BaiHocId']; ?>" 
-                           controls 
-                           controlslist="nodownload"
-                           data-lesson-id="<?php echo $baihoc['BaiHocId']; ?>"
-                           data-completed="<?php echo $isCompleted ? 'true' : 'false'; ?>">
+                        <?php echo $isLocked ? '' : 'controls'; ?> 
+                        controlslist="nodownload"
+                        data-lesson-id="<?php echo $baihoc['BaiHocId']; ?>"
+                        data-locked="<?php echo $isLocked ? 'true' : 'false'; ?>"
+                        data-completed="<?php echo $isCompleted ? 'true' : 'false'; ?>">
                         <source src="/DevMaster/Images-Videos/<?php echo htmlspecialchars($baihoc['LinkVideo']); ?>" type="video/mp4">
                         Trình duyệt không hỗ trợ thẻ video.
                     </video>
@@ -504,6 +551,8 @@ $danhSachBaiHoc = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
             // Đọc tiến độ tổng thể hiện tại của khóa học từ server/biến PHP ban đầu
             let currentOverallPercent = <?php echo $tienDoTong; ?>;
             videos.forEach(video => {
+                // Nếu bài học đang bị khóa, tuyệt đối không gán logic theo dõi tính toán tiến độ
+                if (video.getAttribute('data-locked') === 'true') return;
                 const lessonId = video.getAttribute('data-lesson-id');
                 const isAlreadyCompleted = video.getAttribute('data-completed') === 'true';
                 
@@ -602,9 +651,64 @@ $danhSachBaiHoc = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
                 .then(response => response.json())
                 .then(data => {
                     console.log('Đã đồng bộ tiến độ lên máy chủ: ', data.message);
+
+                    // --- ĐOẠN CODE THÊM MỚI: TỰ ĐỘNG MỞ KHÓA BÀI KẾ TIẾP TRÊN GIAO DIỆN ---
+                    const currentCard = document.getElementById(`video-${lessonId}`).closest('.lesson-card');
+                    const nextCard = currentCard.nextElementSibling;
+                    
+                    if (nextCard && nextCard.classList.contains('lesson-locked')) {
+                        // Loại bỏ các class và style phong tỏa
+                        nextCard.classList.remove('lesson-locked');
+                        nextCard.style.opacity = '1';
+                        nextCard.style.cursor = 'pointer';
+                        
+                        const nextVideoWrapper = nextCard.querySelector('.video-wrapper');
+                        if (nextVideoWrapper) nextVideoWrapper.style.pointerEvents = 'auto';
+                        
+                        const nextVideo = nextCard.querySelector('video');
+                        if (nextVideo) {
+                            nextVideo.setAttribute('data-locked', 'false');
+                            nextVideo.setAttribute('controls', 'true');
+                            // Khởi tạo lại thuộc tính source hoặc nạp lại video nếu cần
+                            const videoSrc = nextVideo.querySelector('source') ? nextVideo.querySelector('source').getAttribute('src') : '';
+                            if(!videoSrc) {
+                                // Tái tạo phần source video dựa trên cấu trúc ID bài học nếu cần, 
+                                // hoặc để tối ưu bạn có thể giữ nguyên thẻ source từ PHP nhưng chỉ chặn pointer-events.
+                                location.reload(); // Cách an toàn nhất để nạp lại trạng thái controls hoàn hảo của trình duyệt
+                            }
+                        }
+                    }
+                    // ----------------------------------------------------------------------
                 })
                 .catch(error => console.error('Lỗi khi đồng bộ tiến độ:', error));
             }
+
+            // Hàm tạo và hiển thị thông báo Warning giữa màn hình
+            function showCenterWarning(message) {
+                let toast = document.getElementById('centerWarningToast');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.id = 'centerWarningToast';
+                    toast.className = 'custom-warning-toast';
+                    document.body.appendChild(toast);
+                }
+                toast.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>${message}</span>`;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 2500); // Biến mất sau 2.5 giây
+            }
+
+            // Sử dụng Event Delegation bắt cứng mọi hành vi click vào bài học bị khóa
+            document.getElementById('lessonsGrid').addEventListener('click', (e) => {
+                const lockedCard = e.target.closest('.lesson-locked');
+                if (lockedCard) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showCenterWarning("Bạn phải hoàn thành bài học trước đó theo thứ tự để mở khóa bài này!");
+                }
+            }, true); // Sử dụng capturing phase để chặn trước khi sự kiện truyền xuống video
         });
     </script>
     <?php include '../Includes/Footer.php'; ?>
